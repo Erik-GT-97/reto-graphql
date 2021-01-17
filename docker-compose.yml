@@ -1,0 +1,51 @@
+version: '3.7'
+
+services: 
+   
+    timescale: 
+      image: timescale/timescaledb:2.0.0-rc4-pg12
+      restart: always
+      volumes: 
+      - reto-graphql:/var/lib/postgresql/data
+      ports:
+        - "${POSTGRES_PORT}:${POSTGRES_PORT}"
+      environment:
+        - POSTGRES_USER=$POSTGRES_USER
+        - POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+        - POSTGRES_DB=$POSTGRES_DB
+      
+    graphql-engine:
+      image: hasura/graphql-engine:v1.2.2
+      ports:
+      - "${HASURA_GRAPHQL_PORT}:${HASURA_GRAPHÑ_PORT}"
+      depends_on:
+      - "timescale"
+      - "nodejs"
+      restart: always
+      environment:
+        - HASURA_GRAPHQL_DATABASE_URL=postgres://$POSTGRES_USER:$POSTGRES_PASSWORD@$POSTGRES_HOST:$POSTGRES_PORT/$POSTGRES_DB
+        - HASURA_GRAPHQL_ENABLE_CONSOLE=$HASURA_GRAPHQL_ENABLE_CONSOLE
+        - HASURA_GRAPHQL_ENABLED_LOG_TYPES=startup, http-log, webhook-log, websocket-log, query-log
+        - HASURA_GRAPHQL_ADMIN_SECRET=$HASURA_GRAPHQL_ADMIN_SECRET
+        - HASURA_GRAPHQL_AUTH_HOOK=htpp://host.docker.internal:${WEBHOOK_PORT}/webhook
+
+    nodejs:
+      build:
+        context: webhook
+        dockerfile: Dockerfile
+      image: nodejs
+      container_name: nodejs
+      restart: unless-stopped
+      ports:
+        - "${WEBHOOK_PORT}:${WEBHOOK_PORT}"
+      environment:
+         - PORT:$WEBHOOK_PORT
+         - JWT_SECRET=$JWT_SECRET
+         - JWT_EXPIRE_IN=$JWT_EXPIRE_IN
+         - DATABASE_URL=postgress://$POSTGRES_USER:$POSTGRES_PASSWORD@$POSTGRES_HOST:$POSTGRES_PORT/$POSTGRES_DB
+         - HASURA_GRAPHQL_ADMIN_SECRET=$HASURA_GRAPHQL_ADMIN_SECRET
+         - HASURA_GRAPHQL_ENDPOINT=$HASURA_GRAPHQL_ENDPOINT
+
+volumes:
+  reto-graphql:
+    name: reto-graphql
